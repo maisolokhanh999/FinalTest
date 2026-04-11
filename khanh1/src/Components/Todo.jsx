@@ -1,12 +1,8 @@
 import { useState } from 'react';
 import { Checkbox, Button, Input } from 'antd';
-
+import data from './data';
 const Todo = () => {
-  const [tasks, setTasks] = useState([
-    { id: 1, text: 'Learn React', active: true },
-    { id: 2, text: 'Build Todo app', active: false },
-    { id: 3, text: 'Deploy to production', active: true },
-  ]);
+  const [tasks, setTasks] = useState(data);
   const [currentTab, setCurrentTab] = useState('all');
   const [newTaskText, setNewTaskText] = useState('');
 
