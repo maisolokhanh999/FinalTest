@@ -6,5 +6,7 @@ const router = express.Router();
 router.use("/teachers", teacherRoutes);
 router.use("/users", userRoutes);
 router.use("/teacherpositions", teacherPositionRoutes);
+router.use("/teacher-positions", teacherPositionRoutes);
+
 
 export default router;
