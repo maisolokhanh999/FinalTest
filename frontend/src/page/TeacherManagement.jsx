@@ -11,6 +11,8 @@ import {
   Select,
   DatePicker,
   message,
+  Descriptions,
+  Divider
 } from 'antd';
 import { SearchOutlined, PlusOutlined, EyeOutlined } from '@ant-design/icons';
 import axios from 'axios';
@@ -30,6 +32,10 @@ const TeacherManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
 
+  // STATES QUẢN LÝ XEM CHI TIẾT GIÁO VIÊN
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState(null);
+
   // 1. Lấy danh sách giáo viên (Phân trang theo cấu trúc API mới)
   const fetchTeachers = async (page = 1, limit = 10) => {
     setLoading(true);
@@ -38,7 +44,6 @@ const TeacherManagement = () => {
       
       if (response.data && response.data.success) {
         setTeachers(response.data.data || []);
-        // Lấy total từ object pagination của Backend
         setTotalTeachers(response.data.pagination?.total || 0);
       } else {
         setTeachers([]);
@@ -78,21 +83,20 @@ const TeacherManagement = () => {
     setPageSize(pagination.pageSize);
   };
 
-  // 3. Xử lý submit form tạo giáo viên mới (Đã sửa đổi map trường dữ liệu)
+  // 3. Xử lý submit form tạo giáo viên mới
   const handleCreateTeacher = async (values) => {
     try {
       const payload = {
         name: values.name,
         email: values.email,
-        phoneNumber: values.phone,    // Khớp với Backend đón nhận
-        identity: values.identityCard, // Khớp với Backend đón nhận
+        phoneNumber: values.phone,    
+        identity: values.identityCard, 
         address: values.address,
         dob: values.dob ? values.dob.format('YYYY-MM-DD') : null,
-        startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : null, // Gửi kèm startDate bắt buộc
+        startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : null, 
         
-        // teacherPositions yêu cầu mảng các ObjectId
         teacherPositions: values.position ? [values.position] : [],
-        degrees: [] // Gửi mảng rỗng nếu chưa làm form bằng cấp sâu
+        degrees: [] 
       };
       
       const response = await axios.post('/api/teachers/', payload);
@@ -101,7 +105,7 @@ const TeacherManagement = () => {
         message.success('Tạo thông tin giáo viên thành công!');
         setIsModalOpen(false);
         form.resetFields();
-        fetchTeachers(currentPage, pageSize); // Reload lại danh sách
+        fetchTeachers(currentPage, pageSize); 
       }
     } catch (error) {
       console.error("Lỗi tạo giáo viên:", error);
@@ -110,7 +114,13 @@ const TeacherManagement = () => {
     }
   };
 
-  // Cấu hình các cột của Bảng (Khớp hoàn toàn dữ liệu map từ hàm getTeachers)
+  // Hàm kích hoạt hiển thị chi tiết giáo viên
+  const handleViewDetails = (record) => {
+    setSelectedTeacher(record);
+    setIsPreviewModalOpen(true);
+  };
+
+  // Cấu hình các cột của Bảng
   const columns = [
     {
       title: 'Mã GV',
@@ -167,8 +177,14 @@ const TeacherManagement = () => {
     {
       title: 'Hành động',
       key: 'action',
-      render: () => (
-        <Button type="text" icon={<EyeOutlined />}>Chi tiết</Button>
+      render: (_, record) => (
+        <Button 
+          type="text" 
+          icon={<EyeOutlined />} 
+          onClick={() => handleViewDetails(record)}
+        >
+          Chi tiết
+        </Button>
       ),
     },
   ];
@@ -207,7 +223,7 @@ const TeacherManagement = () => {
         onChange={handleTableChange}
       />
 
-      {/* Modal Form Tạo mới giáo viên */}
+      {/* 1. Modal Form Tạo mới giáo viên */}
       <Modal
         title="Tạo thông tin giáo viên"
         open={isModalOpen}
@@ -217,7 +233,6 @@ const TeacherManagement = () => {
       >
         <Form form={form} layout="vertical" onFinish={handleCreateTeacher}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
-
             <Form.Item name="name" label="Họ và tên" rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}>
               <Input placeholder="Ví dụ: Nguyễn Văn A" />
             </Form.Item>
@@ -248,7 +263,6 @@ const TeacherManagement = () => {
               </Select>
             </Form.Item>
 
-            {/* Ô CHỌN NGÀY BẮT ĐẦU CÔNG TÁC (ĐÃ SỬA LỖI VALIDATE BẮT BUỘC) */}
             <Form.Item 
               name="startDate" 
               label="Ngày bắt đầu công tác" 
@@ -262,6 +276,84 @@ const TeacherManagement = () => {
             </Form.Item>
           </div>
         </Form>
+      </Modal>
+
+      {/* 2. MODAL XEM CHI TIẾT THÔNG TIN GIÁO VIÊN */}
+      <Modal
+        title="Thông tin chi tiết giáo viên"
+        open={isPreviewModalOpen}
+        onCancel={() => {
+          setIsPreviewModalOpen(false);
+          setSelectedTeacher(null);
+        }}
+        footer={[
+          <Button key="close" onClick={() => setIsPreviewModalOpen(false)}>
+            Đóng
+          </Button>
+        ]}
+        width={750}
+      >
+        {selectedTeacher && (
+          <div style={{ marginTop: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px' }}>
+              <Avatar src={selectedTeacher.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=1"} size={70} />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '20px' }}>{selectedTeacher.name}</h3>
+                <p style={{ color: '#8c8c8c', margin: '4px 0 0 0' }}>Mã giáo viên: <strong>{selectedTeacher.code}</strong></p>
+              </div>
+            </div>
+
+            <Divider orientation="left" style={{ margin: '12px 0' }}>Thông tin cá nhân</Divider>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="Email" span={2}>{selectedTeacher.email || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Số điện thoại">{selectedTeacher.phone || 'N/A'}</Descriptions.Item>
+              <Descriptions.Item label="Trạng thái">
+                <Tag color={selectedTeacher.status === 'Đang công tác' ? 'green' : 'red'}>
+                  {selectedTeacher.status}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Địa chỉ" span={2}>{selectedTeacher.address || 'N/A'}</Descriptions.Item>
+            </Descriptions>
+
+            <Divider orientation="left" style={{ margin: '24px 0 12px 0' }}>Công tác & Học vị</Divider>
+            <Descriptions bordered column={2} size="small">
+              <Descriptions.Item label="Vị trí hiện tại" span={2}>
+                {selectedTeacher.position || 'Chưa bổ nhiệm'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Học vị cao nhất">
+                {selectedTeacher.degree || 'Chưa cập nhật'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Chuyên ngành">
+                {selectedTeacher.major || 'N/A'}
+              </Descriptions.Item>
+            </Descriptions>
+
+            {/* Hiển thị danh sách bằng cấp đầy đủ nếu có */}
+            {selectedTeacher.degrees && selectedTeacher.degrees.length > 0 && (
+              <>
+                <Divider orientation="left" style={{ margin: '24px 0 12px 0' }}>Danh sách bằng cấp chi tiết</Divider>
+                <Table 
+                  dataSource={selectedTeacher.degrees} 
+                  rowKey={(record, index) => index}
+                  pagination={false}
+                  size="small"
+                  columns={[
+                    { title: 'Loại bằng', dataIndex: 'type', key: 'type' },
+                    { title: 'Trường đào tạo', dataIndex: 'school', key: 'school' },
+                    { title: 'Chuyên ngành', dataIndex: 'major', key: 'major' },
+                    { title: 'Năm tốt nghiệp', dataIndex: 'year', key: 'year' },
+                    { 
+                      title: 'Tốt nghiệp', 
+                      dataIndex: 'isGraduated', 
+                      key: 'isGraduated',
+                      render: (isGrad) => isGrad ? <Tag color="blue">Đã tốt nghiệp</Tag> : <Tag color="warning">Chưa tốt nghiệp</Tag>
+                    },
+                  ]}
+                />
+              </>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );
