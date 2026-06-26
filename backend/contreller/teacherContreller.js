@@ -20,9 +20,9 @@ export const getTeachers = async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
-        const total = await Teacher.countDocuments({ isDeleted: false });
+        const total = await Teacher.countDocuments();
 
-        const teachers = await Teacher.find({ isDeleted: false })
+        const teachers = await Teacher.find()
             .skip(skip)
             .limit(limit)
             .populate({
@@ -35,18 +35,34 @@ export const getTeachers = async (req, res) => {
             });
 
         const data = teachers.map((teacher) => ({
-            code: teacher.code,
-            name: teacher.userId?.name,
-            email: teacher.userId?.email,
-            phoneNumber: teacher.userId?.phoneNumber,
-            isActive: teacher.isActive,
-            address: teacher.userId?.address,
-            teacherPositions: teacher.teacherPositions,
-            degrees: teacher.degrees.map((d) => ({
-                type: d.type,
-                school: d.school,
-            })),
-        }));
+    _id: teacher._id,
+    code: teacher.code,
+
+    name: teacher.userId?.name || "",
+    email: teacher.userId?.email || "",
+    phone: teacher.userId?.phoneNumber || "",
+    address: teacher.userId?.address || "",
+
+    status: teacher.isActive ? "Đang công tác" : "Ngừng công tác",
+
+    position:
+        teacher.teacherPositions.length > 0
+            ? teacher.teacherPositions[0].name
+            : "Chưa có",
+
+    degree:
+        teacher.degrees.length > 0
+            ? teacher.degrees[0].type
+            : "",
+
+    major:
+        teacher.degrees.length > 0
+            ? teacher.degrees[0].major
+            : "",
+
+    degrees: teacher.degrees,
+    teacherPositions: teacher.teacherPositions,
+}));
 
         return res.status(200).json({
             success: true,

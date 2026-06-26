@@ -1,29 +1,65 @@
-import User from "../models/user.js";
-
-export const getUsers = async (req, res) => {
-    try {
-        const users = await User.find({ isDeleted: false });
-        return res.status(200).json({ success: true, data: users });
-    } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
-    }
-};
-
 export const createUser = async (req, res) => {
     try {
-        const { name, email, phoneNumber, address, identity, dob, role } = req.body;
+        const {
+            name,
+            email,
+            phoneNumber,
+            address,
+            identity,
+            dob,
+            role,
+        } = req.body;
 
-        const existingUser = await User.findOne({ email, isDeleted: false });
-        if (existingUser) {
+        if (!name || !email || !role) {
+            return res.status(400).json({
+                success: false,
+                message: "Thiếu thông tin bắt buộc",
+            });
+        }
+
+        const existingEmail = await User.findOne({
+            email: email.toLowerCase(),
+            isDeleted: false,
+        });
+
+        if (existingEmail) {
             return res.status(400).json({
                 success: false,
                 message: "Email đã tồn tại",
             });
         }
 
+        if (identity) {
+            const existingIdentity = await User.findOne({
+                identity,
+                isDeleted: false,
+            });
+
+            if (existingIdentity) {
+                return res.status(400).json({
+                    success: false,
+                    message: "CCCD đã tồn tại",
+                });
+            }
+        }
+
+        if (phoneNumber) {
+            const existingPhone = await User.findOne({
+                phoneNumber,
+                isDeleted: false,
+            });
+
+            if (existingPhone) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Số điện thoại đã tồn tại",
+                });
+            }
+        }
+
         const newUser = await User.create({
             name,
-            email,
+            email: email.toLowerCase(),
             phoneNumber,
             address,
             identity,
@@ -37,6 +73,9 @@ export const createUser = async (req, res) => {
             data: newUser,
         });
     } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
     }
 };

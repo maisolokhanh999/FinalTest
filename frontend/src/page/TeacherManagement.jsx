@@ -1,12 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Button, Input, Tag, Space, Avatar, Modal, Form, Select, DatePicker, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+import {
+  Table,
+  Button,
+  Input,
+  Tag,
+  Space,
+  Avatar,
+  Modal,
+  Form,
+  Select,
+  DatePicker,
+  message,
+} from 'antd';
 import { SearchOutlined, PlusOutlined, EyeOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
 const TeacherManagement = () => {
   // States quản lý dữ liệu
   const [teachers, setTeachers] = useState([]);
-  const [positions, setPositions] = useState([]); // Đảm bảo khởi tạo ban đầu là mảng rỗng
+  const [positions, setPositions] = useState([]);
   const [loading, setLoading] = useState(false);
   
   // States quản lý phân trang
@@ -18,37 +30,35 @@ const TeacherManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
 
-  // 1. Lấy danh sách giáo viên (có phân trang)
+  // 1. Lấy danh sách giáo viên (Phân trang theo cấu trúc API mới)
   const fetchTeachers = async (page = 1, limit = 10) => {
     setLoading(true);
     try {
       const response = await axios.get(`/api/teachers/?page=${page}&limit=${limit}`);
-      // Hỗ trợ cả trường hợp API trả về mảng trực tiếp hoặc bọc trong object { data, total }
-      if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      
+      if (response.data && response.data.success) {
         setTeachers(response.data.data || []);
-        setTotalTeachers(response.data.total || 0);
+        // Lấy total từ object pagination của Backend
+        setTotalTeachers(response.data.pagination?.total || 0);
       } else {
-        setTeachers(Array.isArray(response.data) ? response.data : []);
-        setTotalTeachers(Array.isArray(response.data) ? response.data.length : 0);
+        setTeachers([]);
+        setTotalTeachers(0);
       }
     } catch (error) {
       message.error('Không thể tải danh sách giáo viên');
+      console.error("Lỗi API Teachers:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. Lấy danh sách vị trí công tác (Đã sửa lỗi Uncaught TypeError)
+  // 2. Lấy danh sách vị trí công tác để đổ vào Select Option
   const fetchPositions = async () => {
     try {
       const response = await axios.get('/api/teacherpositions/');
-      
-      // Kiểm tra cấu trúc dữ liệu trả về từ API để set state cho đúng
-      if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-        // Trường hợp API trả về dạng { data: [...] }
-        setPositions(Array.isArray(response.data.data) ? response.data.data : []);
+      if (response.data && response.data.success) {
+        setPositions(response.data.data || []);
       } else {
-        // Trường hợp API trả về mảng thuần [...]
         setPositions(Array.isArray(response.data) ? response.data : []);
       }
     } catch (error) {
@@ -62,37 +72,51 @@ const TeacherManagement = () => {
     fetchPositions();
   }, [currentPage, pageSize]);
 
-  // Xử lý khi bấm chuyển trang
+  // Xử lý khi bấm chuyển trang hoặc thay đổi size
   const handleTableChange = (pagination) => {
     setCurrentPage(pagination.current);
     setPageSize(pagination.pageSize);
   };
 
-  // Xử lý submit form tạo giáo viên mới
+  // 3. Xử lý submit form tạo giáo viên mới (Đã sửa đổi map trường dữ liệu)
   const handleCreateTeacher = async (values) => {
     try {
       const payload = {
-        ...values,
-        dob: values.dob ? values.dob.format('YYYY-MM-DD') : null
+        name: values.name,
+        email: values.email,
+        phoneNumber: values.phone,    // Khớp với Backend đón nhận
+        identity: values.identityCard, // Khớp với Backend đón nhận
+        address: values.address,
+        dob: values.dob ? values.dob.format('YYYY-MM-DD') : null,
+        startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : null, // Gửi kèm startDate bắt buộc
+        
+        // teacherPositions yêu cầu mảng các ObjectId
+        teacherPositions: values.position ? [values.position] : [],
+        degrees: [] // Gửi mảng rỗng nếu chưa làm form bằng cấp sâu
       };
       
-      await axios.post('/api/teachers/', payload);
-      message.success('Tạo thông tin giáo viên thành công!');
-      setIsModalOpen(false);
-      form.resetFields();
-      fetchTeachers(currentPage, pageSize);
+      const response = await axios.post('/api/teachers/', payload);
+      
+      if (response.data.success) {
+        message.success('Tạo thông tin giáo viên thành công!');
+        setIsModalOpen(false);
+        form.resetFields();
+        fetchTeachers(currentPage, pageSize); // Reload lại danh sách
+      }
     } catch (error) {
-      message.error('Lỗi khi tạo giáo viên mới');
+      console.error("Lỗi tạo giáo viên:", error);
+      const errorMsg = error.response?.data?.message || 'Lỗi khi tạo giáo viên mới';
+      message.error(errorMsg);
     }
   };
 
-  // Cấu hình các cột của Bảng
+  // Cấu hình các cột của Bảng (Khớp hoàn toàn dữ liệu map từ hàm getTeachers)
   const columns = [
     {
-      title: 'Mã',
-      dataIndex: '_id',
-      key: '_id',
-      render: (text) => text?.substring(0, 6).toUpperCase() || 'N/A',
+      title: 'Mã GV',
+      dataIndex: 'code',
+      key: 'code',
+      render: (text) => text || 'N/A',
     },
     {
       title: 'Giáo viên',
@@ -113,35 +137,30 @@ const TeacherManagement = () => {
       key: 'degree',
       render: (_, record) => (
         <div>
-          <div>Bậc: {record.degree || 'Thạc sĩ'}</div>
+          <div>Bậc: {record.degree || 'Chưa có'}</div>
           <div style={{ fontSize: '12px', color: '#8c8c8c' }}>Chuyên ngành: {record.major || 'N/A'}</div>
         </div>
       ),
     },
     {
-      title: 'Bộ môn',
-      dataIndex: 'department',
-      key: 'department',
-      render: (text) => text || 'N/A',
-    },
-    {
-      title: 'TT Công tác',
+      title: 'Vị trí công tác',
       dataIndex: 'position',
       key: 'position',
-      render: (pos) => (typeof pos === 'object' ? pos?.name : pos) || 'Giáo viên bộ môn',
+      render: (text) => text || 'Chưa có',
     },
     {
       title: 'Địa chỉ',
       dataIndex: 'address',
       key: 'address',
+      render: (text) => text || 'N/A',
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
       render: (status) => (
-        <Tag color={status === 'Đang công tác' || !status ? 'green' : 'red'}>
-          {status || 'Đang công tác'}
+        <Tag color={status === 'Đang công tác' ? 'green' : 'red'}>
+          {status}
         </Tag>
       ),
     },
@@ -198,6 +217,7 @@ const TeacherManagement = () => {
       >
         <Form form={form} layout="vertical" onFinish={handleCreateTeacher}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+
             <Form.Item name="name" label="Họ và tên" rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}>
               <Input placeholder="Ví dụ: Nguyễn Văn A" />
             </Form.Item>
@@ -220,13 +240,21 @@ const TeacherManagement = () => {
 
             <Form.Item name="position" label="Vị trí công tác">
               <Select placeholder="Chọn vị trí công tác">
-                {/* Sử dụng Array.isArray phòng thủ chắc chắn không lo crash trang */}
                 {Array.isArray(positions) && positions.map(pos => (
                   <Select.Option key={pos._id} value={pos._id}>
                     {pos.name}
                   </Select.Option>
                 ))}
               </Select>
+            </Form.Item>
+
+            {/* Ô CHỌN NGÀY BẮT ĐẦU CÔNG TÁC (ĐÃ SỬA LỖI VALIDATE BẮT BUỘC) */}
+            <Form.Item 
+              name="startDate" 
+              label="Ngày bắt đầu công tác" 
+              rules={[{ required: true, message: 'Vui lòng chọn ngày bắt đầu công tác!' }]}
+            >
+              <DatePicker style={{ width: '100%' }} placeholder="Chọn ngày bắt đầu công tác" />
             </Form.Item>
 
             <Form.Item name="address" label="Địa chỉ" style={{ gridColumn: 'span 2' }}>

@@ -70,7 +70,7 @@ const PositionManagement = () => {
         dataSource={positions}
         rowKey={(record) => record._id}
         loading={loading}
-        pagination={{ pageSize: 10 }}
+        pagination={false}
       />
 
       <Modal
