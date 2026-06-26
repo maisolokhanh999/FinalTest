@@ -6,10 +6,7 @@ import routes from "./routes/index.js";
 
 dotenv.config();
 
-if (!process.env.JWT_SECRET) {
-  process.env.JWT_SECRET = "dev-secret-change-me";
-  console.warn("JWT_SECRET chưa được set — đang dùng giá trị mặc định cho dev");
-}
+
 
 const app = express();
 
